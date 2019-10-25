@@ -19,15 +19,16 @@ public class IndexingServerThread extends Thread {
             final ObjectOutputStream output = new ObjectOutputStream(sock.getOutputStream());
 
             Message request = (Message) input.readObject();
+            Message response = null;
 
             if (request.getMessage().equals("LOOKUP")) {
                 long start = System.currentTimeMillis();
 
                 FileSources sources = server.getFileSources((String) request.getContent().get(0));
-                Message response = null;
 
                 if (sources == null) {
                     response = new Message("FAIL");
+                    response.addContent("No file found with this name in the IndexingServer");
                 } else {
                     response = new Message("SUCCESS");
                     response.addContent(sources);
@@ -45,15 +46,19 @@ public class IndexingServerThread extends Thread {
 
                 for (FileMeta f : files)
                     server.addFile(f, source);
-                output.writeObject(new Message("SUCCESS"));
+
+                response = new Message("SUCCESS");
+                output.writeObject(response);
             } else {
-                output.writeObject(new Message("FAIL"));
+                response = new Message("FAIL");
+                response.addContent("Bad request");
+                output.writeObject(response);
                 throw new IllegalArgumentException("BAD REQUEST");
             }
 
             input.close();
             output.close();
-
+            sock.close();
         } catch (Exception e) {
             e.printStackTrace();
         }

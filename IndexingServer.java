@@ -23,7 +23,7 @@ public class IndexingServer extends Server {
     public void start() {
         try {
             Runtime runtime = Runtime.getRuntime();
-            runtime.addShutdownHook(new ShutDownListener(this));
+            runtime.addShutdownHook(new ServerShutDownListener(this));
 
             final ServerSocket serverSock = new ServerSocket(port);
             System.out.println(String.format("Indexing server is running on %s:%d", InetAddress.getLocalHost().getHostAddress().trim(), port));
@@ -86,17 +86,16 @@ public class IndexingServer extends Server {
     }
 }
 
-class ShutDownListener extends Thread
-{
+class ServerShutDownListener extends Thread {
     public IndexingServer server;
 
-    public ShutDownListener (IndexingServer _server) {
+    public ServerShutDownListener (IndexingServer _server) {
         server = _server;
     }
 
     public void run()
     {
-        System.out.println("Shutting down server\n");
+        System.out.println("Shutting down the IndexingServer\n");
         int totalRequests = server.getResponseTimes().size();
         long totalTime = 0;
         for (long t : server.getResponseTimes())
