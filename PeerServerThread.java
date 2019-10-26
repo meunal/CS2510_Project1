@@ -39,11 +39,11 @@ public class PeerServerThread extends Thread {
                     }
                     byte [] buffer = new byte[realBufferSize];
                     FileInputStream fis = new FileInputStream(requestedFile);
-                    fis.skip(fm.getSize() - ((whichChunk - 1) * chunkSize));
+                    fis.skip((whichChunk - 1) * chunkSize);
                     fis.read(buffer);
                     fis.close();
                     response.addContent(buffer);
-                    response.addContent(whichChunk);
+                    // response.addContent(whichChunk);
                 } else {
                     response = new Message("FAIL");
                     response.addContent("File does not exist or cannot read");

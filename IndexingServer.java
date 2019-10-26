@@ -93,8 +93,7 @@ class ServerShutDownListener extends Thread {
         server = _server;
     }
 
-    public void run()
-    {
+    public void run() {
         System.out.println("Shutting down the IndexingServer\n");
         int totalRequests = server.getResponseTimes().size();
         long totalTime = 0;

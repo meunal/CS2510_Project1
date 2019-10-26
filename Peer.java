@@ -110,11 +110,8 @@ class PeerShutDownListener extends Thread {
         master = _master;
     }
 
-    public void run()
-    {
+    public void run() {
         System.out.println("Shutting down the peer\n");
 
-
-        // TO-DO: Write stats
     }
 }

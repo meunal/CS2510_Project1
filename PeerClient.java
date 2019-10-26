@@ -1,11 +1,14 @@
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
-import java.util.Scanner;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class PeerClient extends Thread {
     Peer master;
     FileSources fs;
+    final int MAX_PARALLEL_JOBS = 5;
 
     public PeerClient(Peer _master) {
         master = _master;
@@ -75,12 +78,78 @@ public class PeerClient extends Thread {
     }
 
     private void download() {
-        // download logic here based on how many source in the sourcelist.
-        // if there is one, means we are downloading from single source
-        // otherwise we need to do chunk downloading
-    }
+        try {
+            Set<String> sources = new HashSet<String>(fs.getSourceList()); // making sure no duplicates
 
-    public String getServerID() {
-        return master.getServerID();
+            if (sources.contains(InetAddress.getLocalHost().getHostAddress().trim() + ":" + master.getPort())) {
+                System.out.println("Already have this file");
+                return;
+            }
+
+            List<String> sourceList = new ArrayList<String>(sources);
+
+            int num_jobs = MAX_PARALLEL_JOBS;
+            if (sourceList.size() < num_jobs)
+                num_jobs = sourceList.size();
+
+            if (num_jobs == 1) {
+                String [] addr = sourceList.get(0).split(":");
+
+                long start = System.currentTimeMillis();
+
+                Socket sock = new Socket(addr[0], Integer.parseInt(addr[1]));
+                ObjectOutputStream oos = new ObjectOutputStream(sock.getOutputStream());
+                ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
+
+                Message req = new Message("DOWNLOAD");
+                req.addContent(new FileMeta(fs.getName(), fs.getSize()));
+                oos.writeObject(req);
+
+                Message response = (Message) ois.readObject();
+
+                long end = System.currentTimeMillis();
+                master.addDownloadTime(end - start);
+
+                FileOutputStream fos = new FileOutputStream("./" + master.getServerID() + "/" + fs.getName());
+                fos.write((byte []) response.getContent().get(0));
+                fos.close();
+
+                oos.close();
+                ois.close();
+                sock.close();
+            } else {
+                int chunkSize = (int) Math.ceil(fs.getSize() * 1.0 / num_jobs);
+                ArrayList<DownloaderThread> dlThreadList = new ArrayList<DownloaderThread>();
+
+                for (int i = 0; i < num_jobs; i++)
+                    dlThreadList.add(new DownloaderThread(master.getServerID(), sourceList.get(i), i + 1, chunkSize, new FileMeta(fs.getName(), fs.getSize())));
+
+                long start = System.currentTimeMillis();
+
+                for (int i = 0; i < num_jobs; i++)
+                    dlThreadList.get(i).run();
+                for (int i = 0; i < num_jobs; i++)
+                    dlThreadList.get(i).join();
+
+                long end = System.currentTimeMillis();
+                master.addDownloadTime(end - start);
+
+                FileOutputStream fos = new FileOutputStream("./" + master.getServerID() + "/" + fs.getName(), true);
+
+                for (int i = 0; i < num_jobs; i++) {
+                    File chunk = new File("./" + master.getServerID() + "/" + fs.getName() + "-chunk" + (i + 1));
+                    FileInputStream fis = new FileInputStream(chunk);
+                    fis.transferTo(fos);
+                    fis.close();
+                    chunk.delete();
+                }
+
+                fos.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        fs = null;
     }
 }
