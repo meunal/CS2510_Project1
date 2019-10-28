@@ -1,3 +1,7 @@
+/**
+ * Entry point for Peer
+ * @author Mesut Erhan Unal
+ */
 public class RunPeer {
     public static void main(String [] args) {
         if (args.length != 4) {
